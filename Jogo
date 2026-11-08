@@ -1,0 +1,158 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Escola do Pesadelo</title><style>
+:root{color-scheme:dark;--bg:#0b0710;--fg:#f2e9ff;--ac:#c0224a;--pn:#1c1226;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:14px monospace;overflow:hidden;touch-action:none;user-select:none}
+#st{position:relative;margin:0 auto;width:fit-content;max-width:100%}#rot{display:none;position:fixed;inset:0;z-index:9;background:#0b0710;align-items:center;justify-content:center;font-size:22px;text-align:center}@media (orientation:portrait){#rot{display:flex}}
+canvas#c{width:min(100vw,calc((100dvh - 34px)*16/9));display:block;margin:0 auto;image-rendering:pixelated;background:#000;aspect-ratio:16/9}
+#hud{display:flex;justify-content:space-between;padding:6px 8px;background:var(--pn);min-height:20px}
+#msg{position:absolute;left:6px;right:6px;bottom:56px;background:#000c;border:1px solid var(--ac);padding:6px;font-size:13px;display:none}
+#tc{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;padding:6px;gap:4px;pointer-events:none}#tc div{display:flex;gap:4px}#tc button{pointer-events:auto}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:10px 14px;font:inherit;font-size:16px}
+#tc button{background:#2a1c38cc;min-width:44px;min-height:44px;padding:4px 8px;opacity:.85}
+#ov{position:fixed;inset:0;background:#0b0710f2;overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px;z-index:5}
+#ov button{min-width:220px}#ov.h{display:none}h1{color:var(--ac);margin:0;font-size:24px}
+.sw span{display:inline-block;width:28px;height:28px;margin:3px;border:2px solid #555;border-radius:6px}.sw .on{border-color:#fff}
+</style></head><body>
+<div id="st"><div id="hud"></div><canvas id="c"></canvas><div id="msg"></div>
+<div id="tc"><div><button data-k="l">◀</button><button data-k="r">▶</button></div><div><button data-k="d">⤓</button><button data-k="u">⤒</button><button data-k="e">E</button><button data-k="f">🏏</button><button data-k="q">✨</button><button data-k="z">🍎</button><button data-k="x">💧</button></div></div></div>
+<div id="rot">📱↻<br>Gire o celular<br>para deitado</div><div id="ov"></div>
+<script>
+const $=s=>document.querySelector(s),cv=$('#c');let x=cv.getContext('2d');cv.width=320;cv.height=180;
+const dk=document.createElement('canvas');dk.width=320;dk.height=180;const d=dk.getContext('2d');
+const cl=(v,a,b)=>Math.max(a,Math.min(b,v)),GY=150,W=1600,SX=1560;
+let S={coins:0,look:{skin:0,hair:0,hs:0,uni:0,cls:-1,cape:-1,pet:-1,trail:-1},prog:{keys:0,hide:0,hit:0,win:0},done:{},own:{},inv:{},nick:'Aluno',set:{fps:60,hud:14,fog:1,mute:0},last:''},G=null;
+try{S={...S,...JSON.parse(localStorage.esc||'{}')}}catch(e){}
+const save=()=>{try{localStorage.esc=JSON.stringify(S)}catch(e){}};
+const SK=['#ffd9b8','#e8b48a','#a8714a','#6b4429'],HC=['#2a1a3a','#e8e0f0','#d94a7a','#3a6fd9','#e0a020'],UN=['#27306b','#6b1f2a','#1f5a3a','#333340'];
+const MODES={Normal:{w:'#2a2236',c:'#161020',time:360,ms:.95,sight:1,dark:.9,r:85},'Difícil':{w:'#26352c',c:'#0f1f18',time:270,ms:1.25,sight:1.2,dark:.94,r:68},Pesadelo:{w:'#3a2226',c:'#200d10',time:210,ms:1.45,sight:1.4,dark:.97,r:52}};
+const ROOMS=[[['Secretaria',100,400],['Biblioteca',500,800],['Banheiro',900,1100],['Cantina',1200,1500]],[['Sala 201',100,400],['Lab. Ciências',500,800],['Artes',900,1100],['Música',1200,1500]]];
+const LK=[[450,850,1250],[450,850,1250]];const PL=[[0,330,60,GY-26],[0,780,60,GY-26],[0,1100,70,GY-26],[1,330,60,GY-26],[1,780,60,GY-26],[1,1100,70,GY-26]];
+const NPCS=[{f:0,x:1420,n:'Zelador',l:{skin:2,hair:1,hs:0,uni:3},life:1,t:['Zelador Antônio: Ele caça pelo som! Agache (S) para andar quieto e se esconda nos armários (E). O taco está na Cantina. Toma +30s!','Zelador Antônio: As escadas ficam no fim do corredor. Vá, rápido!']},
+{f:0,x:250,n:'Lia',l:{skin:1,hair:2,hs:2,uni:0},key:1,t:['Lia: Eu vi uma chave na Biblioteca! Cuidado, ele ronda por lá... (chave revelada)','Lia: Estou com medo... vá logo!']},
+{f:1,x:250,n:'Kenji',l:{skin:0,hair:0,hs:0,uni:0},key:2,t:['Kenji: A chave está no Lab. de Ciências, bem no fundo! (chave revelada)','Kenji: Shhh... eu ouvi passos.']},
+{f:1,x:1000,n:'Mari',l:{skin:2,hair:3,hs:1,uni:0},key:3,t:['Mari: A última chave está na sala de Música, perto da escada! (chave revelada)','Mari: Saia daqui, por favor!']}];
+let AC,dr=0;const au=()=>{if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();AC.resume&&AC.resume();return AC};
+function snd(f,du,ty='square',v=.1,sl=0){if(S.set&&S.set.mute)return;try{const a=au(),o=a.createOscillator(),g=a.createGain(),t=a.currentTime;o.type=ty;o.frequency.setValueAtTime(f,t);if(sl)o.frequency.exponentialRampToValueAtTime(Math.max(20,f+sl),t+du);g.gain.setValueAtTime(Math.max(.001,v),t);g.gain.exponentialRampToValueAtTime(.001,t+du);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+du)}catch(e){}}
+function drone(){if(dr)return;dr=1;try{const a=au(),o=a.createOscillator(),g=a.createGain();o.type='sawtooth';o.frequency.value=48;g.gain.value=.012;o.connect(g);g.connect(a.destination);o.start()}catch(e){}}
+const SFX={step:v=>snd(90,.08,'triangle',v),jump:()=>snd(200,.15,'square',.05,300),key:()=>{snd(880,.1,'sine',.1);setTimeout(()=>snd(1320,.2,'sine',.1),90)},coin:()=>snd(1000,.08,'square',.05,400),hit:()=>snd(120,.2,'sawtooth',.15,-60),growl:v=>snd(70,.8,'sawtooth',v,-30),beat:v=>{snd(55,.12,'sine',v);setTimeout(()=>snd(50,.12,'sine',v),160)},warn:()=>{snd(440,.12,'square',.08);setTimeout(()=>snd(330,.2,'square',.08),140)},door:()=>snd(100,.4,'sawtooth',.06,-40)};
+const R=(a,b,w,h,c)=>{x.fillStyle=c;x.fillRect(Math.round(a),Math.round(b),w,h)};
+function person(L,px,py,fc,w,cr){x.save();x.translate(Math.round(px),Math.round(py));x.scale(fc,cr?.75:1);
+const sw=Math.sin(w)*3,b=w?Math.abs(Math.cos(w)):0,sk=SK[L.skin],hc=HC[L.hair],un=UN[L.uni];
+if(L.cape>=0){const cc=['#b01030','#2a50c0','#7a2ab0'][L.cape],s=Math.sin(w*.8+Date.now()/300)*2;R(-9+s,-21+b,5,17,cc);R(-9+s*1.5,-6,5,3,cc)}R(-4+sw,-8,3,6,sk);R(1-sw,-8,3,6,sk);R(-4+sw,-2,4,2,'#111');R(1-sw,-2,4,2,'#111');
+R(-5,-14,10,6,un);R(-5,-22+b,10,9,'#f4f0ff');R(-6,-21+b,2,8,un);R(4,-21+b,2,8,un);R(0,-21+b,3,3,'#d02040');
+R(-5,-31+b,10,9,sk);R(-6,-33+b,12,4,hc);R(-6,-31+b,2,5,hc);R(-5,-29+b,10,2,hc);
+if(L.hs==0){R(-3,-37+b,2,4,hc);R(1,-38+b,2,5,hc);R(4,-36+b,2,3,hc)}
+if(L.hs==1){R(-7,-29+b,3,16,hc);R(4,-28+b,2,5,hc)}
+if(L.hs==2){R(-9,-30+b,3,12,hc);R(6,-30+b,3,12,hc);R(-9,-31+b,3,2,'#d02040')}
+if(L.cls==0){R(-5,-22+b,10,9,'#15151c');R(-5,-14,10,6,'#15151c');R(-6,-30+b,12,2,'#d02040');R(-5,-23+b,10,2,'#15151c')}if(L.cls==1){R(-5,-22+b,10,9,'#2a3a9a');R(-5,-14,10,6,'#2a3a9a');R(-8,-34+b,16,3,'#2a3a9a');R(-4,-42+b,8,9,'#2a3a9a');R(-1,-38+b,2,2,'#ffd23a')}if(L.cls==2){R(-5,-22+b,10,9,'#5a2a7a');R(-5,-14,10,6,'#5a2a7a');R(-8,-34+b,16,3,'#2a1a3a');R(-4,-42+b,8,9,'#2a1a3a');R(-4,-36+b,8,2,'#c0224a')}R(0,-27+b,4,5,'#fff');R(1,-27+b,3,5,'#3a2aa0');R(1,-27+b,1,2,'#fff');R(1,-23+b,2,1,'#6a5ae0');R(-1,-23+b,2,1,'#f08090');x.restore()}
+function mon(M,c,t){x.save();x.translate(Math.round(M.x-c),GY);x.scale(M.fc,1);const w=Math.sin(t*.12)*3,tw=Math.random()<.15?Math.round(Math.random()*3-1.5):0,col=M.stun>0?'#241830':'#050308';
+R(-5+w,-14,4,14,col);R(2-w,-14,4,14,col);R(-7+tw,-36,14,23,col);R(-5+tw,-48+Math.round(Math.sin(t*.06)*1.5),11,12,'#0c0812');
+R(6,-34,3,22+Math.round(Math.sin(t*.1)*3),col);R(-9,-34,3,24+Math.round(Math.cos(t*.1)*3),col);
+for(let i=0;i<5;i++)R(i*2,-38+(i%2)*2,1,2,'#ddd');x.restore()}
+function bg(c,f,t){R(0,0,320,180,G.md.w);R(0,0,320,34,G.md.c);
+for(let i=Math.floor(c/40);i<c/40+9;i++)R(i*40-c,34,1,116,'#221a2e');R(0,100,320,2,'#352a44');
+x.font='6px monospace';x.textAlign='center';
+ROOMS[f].forEach(([n,a,b])=>{const m=(a+b)/2-c;if(m<-60||m>380)return;R(m-13,72,26,78,'#4a3426');R(m-9,78,18,22,'#0c1a26');R(m-9,78,18,1,'#fff3');x.fillStyle='#bbb';x.fillText(n,m,68)});
+LK[f].forEach(l=>{R(l-c-6,100,12,50,'#2f4a5a');R(l-c-6,100,12,2,'#456');R(l-c-3,108,6,1,'#123');R(l-c-3,111,6,1,'#123');R(l-c+3,125,1,4,'#bbb')});
+for(let i=0;i<14;i++)R(i*120+20-c,34,26,3,Math.sin(t*.02+i*7)>-.8?'#e8e0b0':'#443');
+R(0,150,320,30,'#241a16');for(let i=Math.floor(c/32);i<c/32+11;i++)R(i*32-c,150,1,30,'#181010');R(0,150,320,1,'#3a2c24');
+for(let i=0;i<6;i++)R(SX-c-12+i*5,150-(i+1)*7,30-i*5,7,'#4a4054');x.fillStyle='#bbb';x.fillText(f?'▼ descer':'▲ subir',SX-c,60);
+PL.forEach(p=>{if(p[0]==f){R(p[1]-p[2]/2-c,p[3],p[2],4,'#7a5a3a');R(p[1]-p[2]/2-c,p[3]+4,p[2],1,'#2a1a10')}});if(f)R(1044-c,128,12,22,'#150f1a');if(!f){R(30-c-14,70,28,80,'#2a4a2a');x.fillStyle='#bbb';x.fillText('SAÍDA',30-c,66)}}let mt;function say(t){const m=$('#msg');m.textContent=t;m.style.display='block';clearTimeout(mt);mt=setTimeout(()=>m.style.display='none',3800)}
+function hud(){const s=Math.max(0,G.time|0),l=Math.max(0,G.lives);$('#hud').innerHTML=`<span>${'❤️'.repeat(l)}${'🖤'.repeat(3-l)}</span><span>🔑${G.keys}/3</span><span>🪙${G.coins}</span><span>⏱${s/60|0}:${String(s%60).padStart(2,'0')}</span><span>${G.f?'2º andar':'Térreo'}</span><span>🏃${G.st|0} 🍖${G.hu|0} 💧${G.wa|0}</span><span>🍎${G.b.f} 💧${G.b.w} ✨${Object.values(S.inv).reduce((a,b)=>a+b,0)}</span>`}
+function start(mn){drone();au();try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{});screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})}catch(e){}const md=MODES[mn],it=[{f:0,x:650,k:'key',n:1},{f:1,x:700,k:'key',n:2},{f:1,x:1350,k:'key',n:3},{f:0,x:1300,k:'bat'}];
+it.push({f:0,x:420,k:'food'},{f:0,x:900,k:'water'},{f:1,x:560,k:'food'},{f:1,x:1200,k:'water'});[200,350,560,720,1000,1180,1350].forEach((v,j)=>[0,1].forEach(f=>it.push({f,x:v+f*20,k:'coin',y:j%3==2?GY-50:GY-18})));
+G={md,b:{f:0,w:0},st:100,hu:100,wa:100,pf:[],pi:0,invis:0,pp:1500,fct:0,fw:0,gr:1,f:0,px:1500,py:GY,vx:0,vy:0,fc:-1,w:0,cr:0,hid:0,hf:0,lives:3,keys:0,bat:0,coins:0,time:md.time,t:0,inv:0,atk:0,sd:0,bt:0,wt:0,sh:0,over:0,mon:{x:300,fl:0,fc:1,d:1,ch:0,hp:3,stun:0,ft:0,sd:0},npc:NPCS.map(n=>({...n,talked:0})),it};
+$('#ov').className='h';say('Fale com o Zelador (E), ache os colegas e as 3 chaves. Fuja pela SAÍDA!')}
+function cands(){const a=[];LK[G.f].forEach(l=>a.push([Math.abs(l-G.px),()=>{G.hid=1;G.hf=0;G.px=l;S.prog.hide++;SFX.door();say('Escondido. Fique quieto... E para sair.')},l]));
+G.npc.filter(n=>n.f==G.f&&!n.fr).forEach(n=>a.push([Math.abs(n.x-G.px),()=>talk(n),n.x]));
+if(G.f==1)a.push([Math.abs(1050-G.px),supply,1050]);a.push([Math.abs(SX-G.px),()=>{G.f=1-G.f;G.npc.forEach(n=>{if(n.fr)n.f=G.f});G.px=SX-34;SFX.door();say(G.f?'2º andar':'Térreo')},SX]);
+if(!G.f)a.push([Math.abs(30-G.px),()=>{G.keys>=3?end(1):say('Porta trancada! Chaves: '+G.keys+'/3')},30]);return a.sort((p,q)=>p[0]-q[0])}
+function talk(n){say(n.t[n.talked?1:0]);if(!n.talked){n.talked=1;SFX.warn();if(n.key){G.it.find(i=>i.n==n.key).on=1;n.fr=1;setTimeout(()=>say('🤝 '+n.n+' virou seu amigo e vai te seguir!'),2500)}if(n.life)G.time+=30}}
+function act(){if(!G||G.over)return;if(G.hid){G.hid=0;SFX.door();return}const c=cands()[0];if(c[0]<22)c[1]()}
+function atk(){if(!G||G.over||G.hid||G.atk>0)return;if(!G.bat){say('Você precisa de uma arma! Procure o taco na Cantina.');return}
+G.atk=15;snd(300,.12,'sawtooth',.06,-150);const M=G.mon;
+if(M.fl==G.f&&M.stun<=0&&(M.x-G.px)*G.fc>0&&Math.abs(M.x-G.px)<32){SFX.hit();M.hp--;S.prog.hit++;M.x+=G.fc*26;M.stun=150;M.ch=0;G.sh=8;
+if(M.hp<=0){M.hp=3;M.x=G.px>800?150:1450;M.stun=480;say('O monstro recuou para as sombras!')}else say('Acertou! Ele está atordoado!')}}
+function hurt(){const M=G.mon;G.lives--;G.hid=0;G.inv=150;G.sh=10;SFX.hit();SFX.growl(.2);M.ch=0;M.x=G.px>800?200:1400;M.stun=90;if(G.lives<=0)end(0,'O monstro te pegou 3 vezes.');else say('💔 Pego! Vidas: '+G.lives)}
+const MS=[['Coletar 3 chaves','keys',3,20],['Esconder-se 3 vezes','hide',3,15],['Acertar o monstro 3 vezes','hit',3,25],['Escapar da escola','win',1,50]];
+function chk(){let s='';MS.forEach(([n,k,v,r])=>{if(S.prog[k]>=v&&!S.done[k]){S.done[k]=1;S.coins+=r;s+=`<div>✅ ${n} +${r}🪙</div>`}});save();return s}
+function end(w,why){if(G.over)return;G.over=1;const b=G.coins+(w?30:0);S.coins+=b;S.last=new Date().toLocaleString('pt-BR');if(w)S.prog.win++;const r=chk();w?SFX.key():SFX.growl(.2);
+ov(`<h1>${w?'🎉 VOCÊ ESCAPOU!':'💀 VOCÊ MORREU'}</h1><div>${w?'Você saiu da escola com vida!':why}</div><div>🪙 +${b} moedas</div>${r}<button onclick="modes()">Jogar de novo</button><button onclick="lobby()">Lobby</button>`)}
+function up(dt){const M=G.mon,k=K;G.t+=dt;G.time-=dt/60;if(G.time<=0)return end(0,'O tempo acabou. A escola te engoliu...');
+if(G.atk>0)G.atk-=dt;if(G.inv>0)G.inv-=dt;
+let mv=(k.r?1:0)-(k.l?1:0);const gr=!!G.gr;G.cr=!!k.d&&gr&&!G.hid;if(G.hid)mv=0;
+G.vx=mv*(G.cr?.7:G.st>8?1.5:.9);if(mv)G.fc=mv;
+if(k.u&&gr&&!G.cr&&!G.hid&&G.st>10){G.vy=-4.2;G.st-=10;SFX.jump()}
+const po=G.py;G.vy+=.28*dt;G.py+=G.vy*dt;G.gr=0;if(G.py>=GY){G.py=GY;G.vy=0;G.gr=1}else if(G.vy>=0)PL.forEach(p=>{if(p[0]==G.f&&Math.abs(G.px-p[1])<p[2]/2+3&&po<=p[3]&&G.py>=p[3]){G.py=p[3];G.vy=0;G.gr=1}});
+G.px=cl(G.px+G.vx*dt,12,W-12);G.w=mv&&gr?G.w+.17*dt*(G.cr?.6:1):0;
+if(mv&&gr){G.sd+=dt*(G.cr?.5:1);if(G.sd>20){G.sd=0;SFX.step(G.cr?.02:.09)}}
+G.it.forEach(i=>{if(i.f!=G.f||i.got||(i.k=='key'&&!i.on))return;const dy=i.k=='coin'?(i.y>G.py-32&&i.y<G.py+2):1;
+if(Math.abs(i.x-G.px)<10&&dy){i.got=1;if(i.k=='coin'){G.coins++;SFX.coin();burst('#ffd23a',5)}else if(i.k=='food'||i.k=='water'){G.b[i.k=='food'?'f':'w']++;SFX.coin();say('Pegou '+(i.k=='food'?'comida 🍎':'água 💧')+' (mochila)')}else if(i.k=='key'){G.keys++;S.prog.keys++;SFX.key();say('🔑 Chave '+G.keys+'/3!')}else{G.bat=1;SFX.key();say('🏏 Taco! Aperte F para atacar.')}}});
+let fi=0;G.npc.forEach(n=>{if(n.fr){const tx=G.px-G.fc*(24+fi*16);n.w=Math.abs(tx-n.x)>6?(n.w||0)+.15*dt:0;n.x+=(tx-n.x)*.04*dt;fi++}});
+const dx=G.px-M.x,ad=Math.abs(dx),same=M.fl==G.f;
+if(M.stun>0)M.stun-=dt;else if(same){const rng=G.hid||G.invis>0?0:(G.cr?55:115)*G.md.sight;
+if(ad<rng&&G.py>GY-45){if(!M.ch){M.ch=1;SFX.growl(.2);say('⚠ Ele te viu! Corra ou se esconda!')}}else if(ad>rng*1.5+30)M.ch=0;
+if(M.ch){M.fc=dx>0?1:-1;M.x+=M.fc*G.md.ms*dt}else{M.x+=M.d*.5*dt;if(M.x<80||M.x>1520||Math.random()<.004)M.d=-M.d;M.fc=M.d}
+M.x=cl(M.x,40,1540);M.sd+=dt;if(M.sd>(M.ch?16:30)){M.sd=0;SFX.step(Math.max(0,.22-ad/900))}}
+if(!same){M.ft+=dt;if(M.ft>480){M.fl=G.f;M.x=SX-60;M.ft=0;M.ch=0;SFX.warn();say('🚶 Passos na escada... ele está neste andar!')}}else M.ft=0;
+if(same&&M.stun<=0){if(G.hid){if(ad<26){G.hf+=dt;if(G.hf>150){G.hid=0;hurt()}}else G.hf=0}else if(G.inv<=0&&ad<10&&G.py>=GY-14)hurt()}
+G.wt-=dt;if(same&&ad<170){G.bt-=dt;if(G.bt<=0){SFX.beat(.22-ad/900);G.bt=18+ad/5}if(G.wt<=0&&!M.ch){G.wt=600;say('Você ouve uma respiração pesada por perto...')}}
+if(Math.random()<.002)snd(150+Math.random()*100,.5,'sawtooth',.03,-60);
+const fr=G.npc.filter(n=>n.fr).length;G.fct+=dt;G.fw-=dt;
+if(fr&&G.fct>600){G.fct=0;G.coins+=fr;SFX.coin();say('🤝 Seus amigos acharam '+fr+' moeda(s)!')}
+if(fr&&G.fw<=0&&M.fl==G.f&&ad<220){G.fw=500;SFX.warn();say('🤝 Amigo: ⚠ Cuidado, ele está perto!')}
+G.hu=Math.max(0,G.hu-.01*dt);G.wa=Math.max(0,G.wa-.014*dt);if(!G.hu||!G.wa)G.time-=dt/60;
+if(mv&&!G.cr&&gr)G.st-=.06*dt;else G.st+=.12*dt;G.st=cl(G.st,0,100);
+if(G.invis>0)G.invis-=dt;G.pp+=(G.px-G.fc*26-G.pp)*.06*dt;
+G.pf.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=.1*dt;p.l-=dt});G.pf=G.pf.filter(p=>p.l>0)}
+function draw(t){x.save();x.clearRect(0,0,320,180);if(!G){R(0,0,320,180,'#0b0710');x.restore();return}
+const c=cl(G.px-160,0,W-320),M=G.mon;if(G.sh>0){x.translate((Math.random()-.5)*G.sh,(Math.random()-.5)*G.sh);G.sh-=.5}
+bg(c,G.f,t);
+G.it.forEach(i=>{if(i.f!=G.f||i.got||(i.k=='key'&&!i.on))return;
+if(i.k=='key'){R(i.x-c-8,GY-24,16,24,'#ffd23a33');R(i.x-c-3,GY-16+Math.sin(t*.1)*2,7,3,'#ffd23a');R(i.x-c+2,GY-14+Math.sin(t*.1)*2,2,4,'#ffd23a')}
+else if(i.k=='bat')R(i.x-c,GY-6,12,3,'#9a6a3a');else if(i.k=='food')R(i.x-c-3,GY-8,6,6,'#d84a3a');else if(i.k=='water')R(i.x-c-2,GY-9,4,8,'#4ab0ff');else R(i.x-c-2,i.y+Math.sin(t*.1+i.x)*2,5,5,'#ffd23a')});
+G.npc.forEach(n=>{if(n.f==G.f)person(n.l,n.x-c,GY,n.x<G.px?1:-1,n.w||0,0)});
+if(M.fl==G.f)mon(M,c,t);
+if(!G.hid&&!(G.inv>0&&(t|0)%6<3)){x.globalAlpha=G.invis>0?.35:1;person(S.look,G.px-c,G.py,G.fc,G.w,G.cr);x.globalAlpha=1;
+if(G.bat){x.save();x.translate(Math.round(G.px-c),Math.round(G.py));x.scale(G.fc,1);x.translate(5,-17);x.rotate(G.atk>0?-1+(15-G.atk)/15*2.4:.3);R(0,-14,3,14,'#9a6a3a');x.restore()}}
+G.pf.forEach(p=>R(p.x-c,p.y,2,2,p.c));
+if(S.look.pet>=0){const pk=S.look.pet,pc=['#e8903a','#a8703a','#e8f0ff'][pk],qx=G.pp-c,pf=G.px>G.pp?1:-1,hb=Math.abs(Math.sin(t*.3))*(G.vx?2:0);x.globalAlpha=pk==2?.7:1;R(qx-4,GY-7-hb,9,5,pc);R(qx+(pf>0?3:-6),GY-11-hb,5,5,pc);R(qx+(pf>0?5:-6),GY-13-hb,2,2,pc);R(qx-pf*5-(pf>0?1:0),GY-9-hb+Math.sin(t*.4)*1.5,2,4,pc);R(qx+(pf>0?6:-5),GY-9-hb,1,1,'#111');x.globalAlpha=1}
+if(S.look.trail>=0&&G.vx){const tc=S.look.trail?['#7ad8ff','#fff']:['#ff6a20','#ffd23a'];for(let i=0;i<5;i++)R(G.px-c-G.fc*(8+i*6),G.py-4-Math.abs(Math.sin(t*.2+i))*6,3,3,tc[i%2])}
+d.globalCompositeOperation='source-over';d.clearRect(0,0,320,180);d.fillStyle=`rgba(2,0,8,${G.md.dark})`;d.fillRect(0,0,320,180);
+d.globalCompositeOperation='destination-out';const lx=G.px-c,r=G.md.r*(.95+Math.sin(t*.07)*.03),g=d.createRadialGradient(lx,GY-18,6,lx,GY-18,r);
+g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(1,'rgba(0,0,0,0)');d.fillStyle=g;d.fillRect(0,0,320,180);d.globalCompositeOperation='source-over';x.drawImage(dk,0,0);
+x.fillStyle='rgba(150,160,185,.07)';if(S.set.fog)for(let i=0;i<6;i++){x.beginPath();x.ellipse(((i*90+t*.25*(i%2?1:-1))%420+420)%420-50,118+i*7,60,10,0,0,7);x.fill()}
+const ad=Math.abs(G.px-M.x);if(M.fl==G.f){[1,5].forEach(e=>R(M.x-c+(M.fc>0?e:-e-2),GY-44,2,2,'#ff1030'));if(ad<150){x.fillStyle=`rgba(180,0,30,${(.22-ad/800).toFixed(3)})`;x.fillRect(0,0,320,180)}}
+if(!G.hid&&!G.over){const q=cands()[0];if(q[0]<22){x.font='7px monospace';x.textAlign='center';x.fillStyle='#fff';x.fillText('[E]',q[2]-c,GY-44)}}
+x.restore();if((t|0)%8==0)hud()}
+const K={},km={arrowleft:'l',a:'l',arrowright:'r',d:'r',arrowup:'u',w:'u',' ':'u',arrowdown:'d',s:'d'};
+addEventListener('keydown',e=>{const kk=e.key.toLowerCase(),k=km[kk];if(k){K[k]=1;e.preventDefault()}if(kk=='e')act();if(kk=='f')atk();if(kk=='q')usePw();if(kk=='z')eat(0);if(kk=='x')eat(1)});
+addEventListener('keyup',e=>{const k=km[e.key.toLowerCase()];if(k)K[k]=0});
+document.querySelectorAll('#tc button').forEach(b=>{const k=b.dataset.k;b.onpointerdown=e=>{e.preventDefault();k=='e'?act():k=='f'?atk():k=='q'?usePw():k=='z'?eat(0):k=='x'?eat(1):K[k]=1};['pointerup','pointerleave','pointercancel'].forEach(ev=>b['on'+ev]=()=>{if(k!='e'&&k!='f')K[k]=0})});
+const ov=h=>{$('#ov').className='';$('#ov').innerHTML=h};
+function lobby(){chk();ov(`<h1>👻 ESCOLA DO PESADELO</h1><div>👤 ${S.nick} · 🪙 ${S.coins}</div><button onclick="modes()">▶ Jogar</button><button onclick="cust()">🎒 Personagem</button><button onclick="shop()">🛒 Loja</button><button onclick="prof()">⚙ Perfil e Config</button><button onclick="miss()">📋 Missões</button><small>A/D ou setas: andar · W/Espaço: pular · S: agachar · E: interagir · F: atacar</small>`)}
+function modes(){ov(`<h1>Modo de jogo</h1><button onclick="start('Normal')">😰 Normal · 6 min</button><button onclick="start('Difícil')">😱 Difícil · 4:30</button><button onclick="start('Pesadelo')">💀 Pesadelo · 3:30</button><button onclick="lobby()">Voltar</button>`)}
+function miss(){chk();ov(`<h1>Missões</h1><div>🪙 ${S.coins}</div>${MS.map(([n,k,v,r])=>`<div>${S.done[k]?'✅':'⬜'} ${n} (${Math.min(S.prog[k],v)}/${v}) · ${r}🪙</div>`).join('')}<button onclick="lobby()">Voltar</button>`)}
+const sw=(k,a)=>`<div class=sw>${a.map((c,i)=>`<span class="${S.look[k]==i?'on':''}" style="background:${c}" onclick="S.look.${k}=${i};save();cust()"></span>`).join('')}</div>`;
+let last=0;function loop(ts){if(ts-last<1000/S.set.fps-2){requestAnimationFrame(loop);return}const dt=Math.min(2,(ts-last)/16.67||1);last=ts;if(G&&!G.over&&!G.pz)up(dt);draw(ts/16.67);
+const p=document.getElementById('pv');if(p){const c0=x;x=p.getContext('2d');x.clearRect(0,0,64,64);person(S.look,32,54,1,ts/120,0);x=c0}requestAnimationFrame(loop)}
+const SH={cls:[['🥷 Ninja',60],['🧙 Mago',80],['🧹 Bruxa',80]],cape:[['Capa vermelha',40],['Capa azul',40],['Capa roxa',50]],pet:[['🐱 Gato',50],['🐶 Cão',50],['👻 Fantasminha',70]],trail:[['🔥 Rastro fogo',30],['❄ Rastro gelo',30]],pw:[['🔥 Poção de fogo',25,'fire'],['❄ Poção de gelo',25,'ice'],['👻 Poção invisível',30,'inv'],['📖 Livro da vida',60,'life'],['💀 Livro da morte',90,'death']]};
+const LB={cls:'Classes',cape:'Capas',pet:'Pets',trail:'Rastros',pw:'Poderes (tecla Q)'};
+const own=(k,i)=>(S.own[k]||[]).includes(i);
+function shop(){ov(`<h1>🛒 Loja</h1><div>🪙 ${S.coins}</div>${Object.entries(SH).map(([k,a])=>`<b>${LB[k]}</b><div>${a.map((it,i)=>`<button style="min-width:0!important;padding:6px;margin:2px" onclick="buy('${k}',${i})">${it[0]} ${k=='pw'?it[1]+'🪙 (tem '+(S.inv[it[2]]||0)+')':own(k,i)?(S.look[k]==i?'✔':'usar'):it[1]+'🪙'}</button>`).join('')}</div>`).join('')}<button onclick="lobby()">Voltar</button>`)}
+function buy(k,i){const it=SH[k][i];if(k=='pw'){if(S.coins<it[1])return;S.coins-=it[1];S.inv[it[2]]=(S.inv[it[2]]||0)+1}else if(own(k,i))S.look[k]=S.look[k]==i?-1:i;else{if(S.coins<it[1])return;S.coins-=it[1];(S.own[k]=S.own[k]||[]).push(i);S.look[k]=i}save();shop()}
+function setNick(){S.nick=($('#nk').value||'Aluno').replace(/[<>"]/g,'');save();prof()}
+function prof(){ov(`<h1>⚙ Perfil</h1><div>Nick: <input id=nk value="${S.nick}" maxlength=12 style="font:inherit;padding:6px;width:130px"> <button style="min-width:0!important;padding:6px" onclick="setNick()">OK</button></div><small>Vitórias ${S.prog.win} · Chaves ${S.prog.keys} · Esconderijos ${S.prog.hide}<br>Último jogo: ${S.last||'—'} · tudo é salvo automaticamente</small><button onclick="S.set.fps=S.set.fps==60?30:60;save();prof()">FPS: ${S.set.fps}</button><button onclick="S.set.hud=S.set.hud>=18?11:S.set.hud+3;$('#hud').style.fontSize=S.set.hud+'px';save();prof()">HUD: ${S.set.hud}px</button><button onclick="S.set.fog=1-S.set.fog;save();prof()">Neblina: ${S.set.fog?'ligada':'desligada'}</button><button onclick="S.set.mute=1-S.set.mute;save();prof()">Som: ${S.set.mute?'desligado':'ligado'}</button><button onclick="lobby()">Voltar</button>`)}
+function burst(c,n=14){for(let i=0;i<n;i++)G.pf.push({x:G.px,y:G.py-16,vx:(Math.random()-.5)*3,vy:-Math.random()*3,l:40,c})}
+function eat(w){if(!G||G.over)return;const k=w?'w':'f',s=w?'wa':'hu';if(G.b[k]<1){say('Sem '+(w?'água':'comida')+' na mochila!');return}G.b[k]--;G[s]=Math.min(100,G[s]+45);SFX.coin();burst(w?'#4ab0ff':'#d84a3a',8)}
+function usePw(){if(!G||G.over)return;const o=['fire','ice','inv','life','death'];for(let j=0;j<5;j++){const k=o[(G.pi+j)%5];if((S.inv[k]||0)>0){G.pi=(G.pi+j+1)%5;S.inv[k]--;pw(k);return}}say('Sem poderes! Compre na loja do lobby.')}
+function pw(k){const M=G.mon,near=M.fl==G.f&&Math.abs(M.x-G.px)<120;SFX.warn();burst({fire:'#ff6a20',ice:'#7ad8ff',inv:'#fff',life:'#ff4a7a',death:'#9a30ff'}[k],20);
+if(k=='fire'){if(near){M.hp--;M.stun=240;M.ch=0;S.prog.hit++;if(M.hp<=0){M.hp=3;M.x=G.px>800?150:1450;M.stun=480}}say('🔥 Poção de fogo!')}
+if(k=='ice'){if(near)M.stun=480;say('❄ Monstro congelado!')}
+if(k=='inv'){G.invis=420;M.ch=0;say('👻 Invisível por 7s!')}
+if(k=='life'){G.lives=Math.min(3,G.lives+1);say('📖 Livro da vida: +1 ❤')}
+if(k=='death'){M.x=G.px>800?150:1450;M.stun=1500;M.ch=0;say('💀 Livro da morte: o monstro sumiu por 25s!')}}
+function supply(){G.pz=1;ov(`<h1>🕳️ Loja secreta</h1><div>🪙 ${G.coins} (desta partida)</div><button onclick="sb('f',5)">🍎 Comida · 5🪙</button><button onclick="sb('w',5)">💧 Água · 5🪙</button><button onclick="sb('l',20)">📖 +1 vida · 20🪙</button><button onclick="G.pz=0;$('#ov').className='h'">Fechar</button>`)}
+function sb(k,p){if(G.coins>=p){G.coins-=p;if(k=='l')G.lives=Math.min(3,G.lives+1);else G.b[k]++}supply()}
+function boot(){$('#hud').style.fontSize=S.set.hud+'px';ov(`<h1 style="font-size:34px">👻 ESCOLA DO PESADELO</h1><i id=lt>Uma noite de neblina. A escola está trancada...</i><div style="width:240px;height:10px;background:#2a1c38;border-radius:5px"><div id=lb style="height:10px;width:0;background:var(--ac);border-radius:5px;transition:width 3s linear"></div></div><small>Carregando...</small>`);setTimeout(()=>$('#lb').style.width='100%',50);setTimeout(()=>$('#lt').textContent='Ache os 3 amigos. Ache as chaves. Escape.',1400);setTimeout(lobby,3200)}
+boot();requestAnimationFrame(loop);
+</script></body></html>
